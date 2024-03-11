@@ -1,5 +1,5 @@
 ## Trabalho prático de Extração de Conhecimento de Dados Biológicos-2023/2024
- ### Participantes
+ ### Elementos do grupo:
  Sofia ferreira, PG53502 <br>
  Beatriz Santos, PG... <br>
  Ian Machado, PG51682 <br>
