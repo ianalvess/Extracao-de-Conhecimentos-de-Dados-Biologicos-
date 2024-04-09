@@ -7,7 +7,7 @@
 O trabalho desenvolvido visa a análise do conjunto de dados obtidos a partir do cBioPortal, concernentes a informações clínicas relacionadas com o cancro colorretal,
 através da utilização do software R e dos packages disponíveis no Bioconductor.
   ### Dados cBioPortal
-   https://www.cbioportal.org/study/clinicalData?id=coadread_tcga_pub
+   https://www.cbioportal.org/study/summary?id=blca_tcga_pub_2017
 
 
 
