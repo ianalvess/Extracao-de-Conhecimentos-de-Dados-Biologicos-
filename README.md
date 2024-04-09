@@ -4,7 +4,7 @@
  Beatriz Santos, PG46723 <br>
  Ian Machado, PG51682 <br>
   ### Objetivo
-O trabalho desenvolvido visa a análise do conjunto de dados obtidos a partir do cBioPortal, concernentes a informações clínicas relacionadas com o cancro colorretal,
+O trabalho desenvolvido visa a análise do conjunto de dados obtidos a partir do cBioPortal, concernentes a informações clínicas relacionadas com o cancro de bexiga,
 através da utilização do software R e dos packages disponíveis no Bioconductor.
   ### Dados cBioPortal
    https://www.cbioportal.org/study/summary?id=blca_tcga_pub_2017
