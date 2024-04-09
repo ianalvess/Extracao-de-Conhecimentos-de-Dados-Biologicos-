@@ -1,0 +1,744 @@
+---
+title: "TRABALHO PRÁTICO EXTRAÇÃO DE CONHECIMENTO DE BASES DE DADOS BIOLÓGICAS"
+author: "Beatriz Santos (PG46723), Ian Machado (PG51682), Sofia Ferreira (PG53502) - Grupo 1"
+date: "29/03/2024"
+output:
+  html_document:
+    highlight: tango
+    number_sections: yes
+    theme: united
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE)
+```
+
+```{=html}
+<style>
+body {text-align; justify}
+div.fontdoc {font-family: georgia;}
+body .main-container {
+max-width: 1750px;
+}
+<style>
+```
+
+
+```{css, echo=FALSE}
+.scroll {
+  max-height: 250px;
+  overflow-y: auto;
+  background-color: inherit;
+}
+```
+
+```{css, echo=FALSE}
+pre {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+pre[class] {
+  max-height: 500px;
+}
+```
+
+
+# **Explicação dos dados, origem e relevância**
+O cBioPortal é uma plataforma online amplamente utilizada para a visualização, análise e partilha de dados genómicos de cancro. Esta fornece acesso a uma grande variedade de dados genómicos, incluindo dados de expressão genética, mutações, amplificações e deleções genómicas, adicionalmente também contém dados clínicos associados aos diferentes tipos de cancro. \
+Esta plataforma usa, entre outros, o projeto CCLE, que é uma colaboração entre o Broad Institute, o Novartis Institutes for BioMedical Research (NIBR) e o Genomics Institute of the Novartis Research Foundation (GNF) que tenta caracterizar genes e fármacos numa ampla variedade de modelos de células cancerígenas humanas. O projeto CCLE tem como objetivo desenvolver análises computacionais capazes de identificar alvos farmacológicos distintos dos padrões genómicos, com o propósito de estratificar pacientes com cancro.\
+
+A base de dados que nós selecionamos para análise foi de "Bladder Cancer" (https://www.cbioportal.org/study/summary?id=blca_tcga_pub_2017). Este contém dados de RNA seq e dados clínicos que dizem respeito à caracterização molecular exaustiva do cancro da bexiga (músculo-invasivo), onde foi feita a sequenciação do exoma completo de 412 tumores da bexiga, e amostras normais correspondentes.
+
+Foram extraídos os seguintes datasets da base de dados: \
+
+**-** **RNASeq (primário)** - Este dataset contém a expressão genética que codificam proteínas usando RSEM. O dataset é constituído por linhas e colunas, onde nas linhas encontram-se os dados de expressão de cada gene e nas colunas as amostras.\
+
+**-** **Mutations (metadados)** - Contém dados de mutações sequenciadas. Neste dataset, as linhas correspondem aos genes e as colunas às diferentes variáveis.\
+
+**-** **Sample Info** - Os dados desta tabela contêm as várias amostras de pacientes com diferentes tipos de cancro \
+
+**-** **Patient Info** - Os dados desta tabela contêm informações relativas aos pacientes com diferentes tipos de cancro.\
+
+Nas colunas do dataset Mutations encontram-se diferentes tipos de informações acerca das linhas celulares a que se referem os outros datasets: \
+
+- Hugo_Symbol: Refere-se ao símbolo oficial do gene, tal como designado pelo HUGO Gene Nomenclature Committee (HGNC).
+
+- Entrez_Gene_Id: Um identificador numérico único para o gene, atribuído pelo NCBI.
+
+- Center: O laboratório/instituição que gerou os dados.
+  
+- NCBI_Build: A versão de referência de assembly do genoma utilizada para a análise.
+
+- Chromosome: O cromossoma onde a mutação está localizada.
+
+- Start_Position/End_Position A posição do par de bases no cromossoma onde a mutação começa/termina.
+
+- Strand: A cadeia de DNA onde a variante está localizada.
+
+- Consequence: O impacto funcional previsto da mutação.
+                                         
+- Variant_Classification: Classificação da mutação de acordo com seu impacto clínico previsto (Missense, Silent, etc)
+  
+- Variant_Type: O tipo da mutação (SNP, INS, DEL)
+
+- Reference_Allele: Alelo de referência na posição da mutação no genoma de referência.
+
+- Tumor_Seq_Allele1/Tumor_Seq_Allele2: Alelo observado na primeira e segunda leitura da amostra tumoral.
+
+- dbSNP_RS: Identificador da mutação no banco de dados dbSNP.
+  
+- Tumor Sample_Barcode: Código de identificação da amostra tumoral.
+
+- Matched_Norm_Sample_Barcode: Código de identificação da amostra normal pareada.
+
+- Match_Norm_Seq_Allele1/Match_Norm_Seq_Allele2: Alelo observado na primeira/segunda leitura da amostra normal pareada.
+
+- Validation_Status: Status de validação da mutação.
+
+- Sequencing_Phase: fase da mutação.
+  
+- Sequence_Source: fonte da sequência da mutação.
+
+- Validation_Method: método de validação da mutação.
+
+- Sequencer: plataforma de sequenciamento utilizada para gerar os dados.
+
+- HGVSc: nome da mutação usando a nomenclatura HGVS (Human Genome Variation Society).
+
+- HGVSp: nome da mutação usando a nomenclatura HGVS em formato de proteína.
+
+- Transcript_ID: dentificador único do transcrito de RNA mensageiro (mRNA) afetado pela variante.
+
+- RefSeq: Identificador do RefSeq (NCBI Reference Sequence) da proteína codificada pelo transcrito.
+
+- Protein_position: Posição do aminoácido na proteína que é alterada pela variante.
+
+- Codons: codão original e mutado que codificam o aminoácido na posição indicada.
+
+
+## **Importação dos datasets para o RStudio, packages e funções**
+
+
+```{r Instalação de Packages}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+```
+
+```{r library, echo = TRUE, warning = FALSE, message = FALSE}
+library(readr)
+library(BiocManager)
+library(tidyverse)
+library(GGally)
+library(ggplot2)
+library(arules)
+library(dplyr)
+library(edgebundleR)
+library(gplots)
+library(colorRamps)
+library(colorspace)
+library(summarytools)
+library(lawstat)
+library(GeneF)
+library(ggfortify)
+library(useful)
+library(edgedata)
+```
+
+
+## **Importação dos Datasets:**
+
+
+```{r}
+#Importação da tabela data_mrna_seq_v2_rsem que contém dados de RNA_seq
+mRNA_seq = read.table("C:/Users/BeaBa/Desktop/dados_extracao/data_mrna_seq_v2_rsem.txt", header = T, sep='\t')
+View(mRNA_seq)
+
+#Importação da tabela data_clinical_sample que contém metadados relativos às amostras
+sample_data = read.table("C:/Users/BeaBa/Desktop/dados_extracao/data_clinical_sample.txt", header = T, sep='\t', fill = TRUE)
+View(sample_data)
+
+#Importação da tabela data_clinical_patient que contém metadados relativos aos pacientes
+patient_data = read.table("C:/Users/BeaBa/Desktop/dados_extracao/data_clinical_patient.txt", header = T, sep='\t', fill = TRUE)
+View(patient_data)
+
+#Importação da tabela data_mutations que contém dados de mutações
+mutations_data = read.table("C:/Users/BeaBa/Desktop/dados_extracao/data_mutations.txt", header = T, sep='\t', fill = TRUE)
+View(mutations_data)
+```
+
+
+# **Análise geral e pré-processamento dos datasets**
+
+## **Classe, dimensão e estrutura dos dados  **
+
+Começamos por verificar os tipos de datasets (classe), de forma a ajudar a entender melhor a estrutura dos conjuntos de dado, de forma a garantir a correta manipulação de dados e análises subsequentes. Para todos os objetos verificamos que pertencem à classe de Dataframe.\
+
+```{r}
+class(mRNA_seq)
+class(sample_data)
+class(patient_data)
+class(mutations_data)
+```
+
+Através da função $dim$ obtemos as dimensões (número de linhas e colunas) de cada um dos datasets. A função $str$ permite obter uma descrição estruturada dos datasets.\
+
+```{r dimensão e estrutura RNASeq, warning = FALSE, class.output = "scroll"}
+dim(mRNA_seq)
+```
+
+O dataset 'mRNA_seq' possui 20437 linhas (correspondentes a 20437 genes) e 410 colunas correspondentes às amostras, identificadas por códigos TCGA-AA-*(identificador do 'The Cancer Genome Atlas', um grande projeto destinado a compilar e analisar dados genéticos relacionados com o cancro). Os valores na tabela representam os níveis de expressão de mRNA em diferentes amostras.\
+
+
+```{r}
+str(mRNA_seq)
+```
+
+O dataset 'mRNA_seq' possui as classificações corretas para as colunas "Hugo_Symbol" e das amostras, como "chr" e "num", respetivamente, como seria de esperar. No entanto, a coluna "Entrez_Gene_Id" é apresentada como "num" e deveria ser considerada "chr" visto que são strings idendificadoras dos genes. Sendo assim, procedemos à transformação da coluna "Entrez_Gene_Id" para o tipo de dado caracteres (chr).\
+
+
+```{r}
+#Transformação da coluna "Entrez_Gene_Id para o tipo de dado character
+mRNA_seq$Entrez_Gene_Id <- as.character(mRNA_seq$Entrez_Gene_Id)
+```
+
+
+```{r}
+dim(sample_data)
+```
+
+O dataset 'mRNA_seq' possui 413 linhas (correspondentes a 413 amostras) e 17 colunas correspondentes às variáveis, apresentadas na seguinte tabela: \
+
+
+| \\#  | Nome do Parâmetro           | Descrição                                                    |
+| ---- | --------------------------- | ------------------------------------------------------------ |
+| 1    | PATIENT_ID                  | Identificador único do paciente                              |
+| 2    | SAMPLE_ID                   | Identificador único da amostra do paciente                   |
+| 3    | ONCOTREE_CODE               | Código ONCOTREE que representa o tipo de cancro              |
+| 4    | CANCER_TYPE                 | Tipo de cancro do paciente                                   |
+| 5    | CANCER_TYPE_DETAILED        | Descrição detalhada do tipo de cancro                        |
+| 6    | OTHER_SAMPLE_ID             | Outro identificador de amostra do paciente                   |
+| 7    | DAYS_TO_COLLECTION          | Dias decorridos até a colheita da amostra                      |
+| 8    | SAMPLE_INITIAL_WEIGHT       | Peso inicial da amostra                                      |
+| 9    | IS_FFPE                     | Indica se a amostra é fixada em formalina e incluída em parafina (FFPE) |
+| 10   | OCT_EMBEDDED                | Indica se a amostra está em OCT (Optimal Cutting Temperature) |
+| 11   | PATHOLOGY_REPORT_FILE_NAME  | Nome do arquivo do relatório de patologia                    |
+| 12   | PATHOLOGY_REPORT_UUID       | UUID (Identificador Único Universal) do relatório de patologia |
+| 13   | SAMPLE_TYPE_ID              | Identificador do tipo de amostra                             |
+| 14   | VIAL_NUMBER                 | Número do tubo de amostra                                    |
+| 15   | SAMPLE_TYPE                 | Tipo de amostra                                              |
+| 16   | SOMATIC_STATUS              | Status somático da amostra                                   |
+| 17   | TMB_NONSYNONYMOUS           | Taxa de mutação de base não sinónima (TMB)                   |
+
+
+```{r}
+str(sample_data)
+```
+O dataset 'sample_data' possui as classificações corretas para todas as colunas. Consideramos que todas as variáveis possuem um nome facilmente identificativo e por isso não precisam de ser renomeadas.\
+
+
+```{r}
+dim(patient_data)
+```
+O dataset 'patient_data' possui 411 linhas (correspondentes a 411 pacientes) e 77 colunas correspondentes às variáveis, que não se encontra disponível em tabela devido à sua grande dimensão. \
+
+
+```{r}
+str(patient_data)
+```
+
+O dataset 'patient_data' possui as classificações corretas para todas as colunas. Consideramos que todas as variáveis possuem um nome facilmente identificativo e por isso não precisam de ser renomeadas.\
+
+```{r}
+dim(mutations_data)
+```
+O dataset 'mutation_data' possui 751 linhas (correspondentes a 751 genes) e 278 colunas correspondentes às variáveis, que não se encontra disponível em tabela devido à sua grande dimensão. \
+
+```{r}
+str(mutations_data)
+```
+
+O dataset 'patient_data' possui as classificações corretas para todas as colunas, com exceção da coluna "Entrez_Gene_Id" que é apresentada como "num" e deveria ser considerada "chr" visto que são strings idendificadoras dos genes. Sendo assim, procedemos à transformação da coluna "Entrez_Gene_Id" para o tipo de dado caracteres (chr).\
+
+
+```{r}
+#Transformação da coluna "Entrez_Gene_Id para o tipo de dado character
+mutations_data$Entrez_Gene_Id <- as.character(mutations_data$Entrez_Gene_Id)
+```
+
+
+## **Processamento de dados**
+
+Usando a função $row.names()$ extraímos os nomes das linhas do dataframe mRNA_seq. Em seguida, está exibimos as primeiras linhas desses nomes usando $head()$. Isso foi feito para verificar como os índices das linhas estão atualmente.\
+
+```{r}
+head(row.names(mRNA_seq))
+```
+Visto que normalmente existem duplicados neste tipo de dataframes, usamos a função $duplicated()$ para verificar quais valores se encontravam duplicados na coluna correspondente aos genes.\
+
+```{r}
+mRNA_seq[which(duplicated(mRNA_seq[,1])),1]
+```
+
+Feita a verificação de duplicados, fizemos a substituição do duplicado por ele mesmo com adição de "v2".\
+
+```{r}
+mRNA_seq[which(duplicated(mRNA_seq[,1])),1]=paste(mRNA_seq[which(duplicated(mRNA_seq[,1])),1],"v2", sep = "")
+```
+
+Confirmação de que não existem valores duplicados: \
+```{r}
+mRNA_seq[which(duplicated(mRNA_seq[,1])),1]
+```
+
+Após este processamento, procedemos à associação dos índices das linhas com os nomes dos genes. \
+
+```{r}
+row.names(mRNA_seq)=mRNA_seq[,1]
+```
+
+Verificação do índice das linhas do dataframe "mRNA_seq": \
+
+```{r}
+head(row.names(mRNA_seq))
+```
+Após uma breve análise dos datasets, verificamos a existência de valores omissos (NA) nos datasets *sample_data*, *mutations_data*. No entanto, não vão ser retirados os valores omissos pois estes estão em metadados pertencentes aos pacientes e também não vão afetar as análises que vão ser feitas posteriormente. \
+
+
+```{r}
+#verificação de NA's
+sum(is.na(mRNA_seq))
+
+sum(is.na(patient_data))
+
+sum(is.na(sample_data))
+
+sum(is.na(mutations_data))
+```
+
+
+Quando observamos os datasets, verificamos que as sample ID no dataset "mRNA_seq" se encontram no formato "TCGA.2F.A9KO.01" e que no dataset "sample_data" se encontram no formato "TCGA-2F-A9KO-01". Sendo assim, procedemos à substituição dos pontos (.) por traços (-) nos nomes das colunas do dataframe "mRNA_seq". Isto será útil para podermos conectar os diferentes dataframes.\
+
+
+```{r}
+head(colnames(mRNA_seq))
+gsub("\\.", "-", "TCGA.2F.A9KO.01")
+colnames(mRNA_seq)=gsub("\\.", "-", colnames(mRNA_seq))
+```
+
+
+Após o tratamentos dos datasets, observa-se que os dados em estudo sao interligados a partir da variavel SAMPLE_ID e do PATIENT_ID, assim procedemos a interligação de todos os data-sets, para todos os dados apresentarem dados comparáveis.
+
+```{r}
+library(dplyr)
+#Filtragem dos sample_data que têm dados de RNA_seq associados num novo dataframe chamado sub_sample_data
+sub_sample_data <- sample_data %>% filter(SAMPLE_ID %in% colnames(mRNA_seq))
+
+#Filtragem dos patient_data que têm dados de RNA_seq e sample_data associados num novo dataframe chamado sub_patient_data
+sub_patient_data <- patient_data %>% filter(patient_data$PATIENT_ID %in% sub_sample_data$PATIENT_ID)
+
+
+#Filtragem dos mutations_data que têm dados de RNA_seq associados num novo dataframe chamado sub_data_mutatations
+sub_mutations_data <- mutations_data %>% filter(mutations_data$Hugo_Symbol %in% mRNA_seq$Hugo_Symbol)
+```
+
+
+## **Definir como fatores**
+Ao analisar o dataset patient_data detatamos que existiam vários fatores que não estariam nos seus formatos corretos, por isso convertemos as variáveis para o formato apropriado.  Por exemplo, a variável “sex”no dataset apresentava-se como uma variável “character” mas na realidade é uma variável dedois fatores, ‘Male’ e ‘Female’.\
+
+```{r}
+#Definir com fatores
+
+# Variáveis que precisam de ser convertidas para fatores do dataset sub_patient_data
+
+factor_variables <- c(
+    "PROSPECTIVE_COLLECTION",
+    "RETROSPECTIVE_COLLECTION",
+    "SEX",
+    "RACE",
+    "ETHNICITY",
+    "HISTORY_OTHER_MALIGNANCY",
+    "HISTORY_NEOADJUVANT_TRTYN",
+    "NONINVASIVE_BLADDER_HISTORY",
+    "NONINVASIVE_BLADDER_CA_TX_TYPE",
+    "TX_90DAYS_POST_RESECTION",
+    "TX_COMPLETE_RESPONSE",
+    "TX_INDUCTION_COURSES_INDICATOR",
+    "TX_MAINTENANCE_COURSES_INDICATOR",
+    "TUMOR_STATUS",
+    "RADIATION_TREATMENT_ADJUVANT",
+    "PHARMACEUTICAL_TX_ADJUVANT",
+    "HISTOLOGICAL_SUBTYPE",
+    "ANGIOLYMPHATIC_INVASION",
+    "LYMPH_NODES_EXAMINED",
+    "EXTRACAPSULAR_EXTENSION",
+    "EXTRACAPSULAR_EXTENSION_PRESENT",
+    "AJCC_METASTASIS_PATHOLOGIC_PM",
+    "AJCC_PATHOLOGIC_TUMOR_STAGE",
+    "INCIDENTAL_PROSTATE_CANCER",
+    "NEW_TUMOR_EVENT_AFTER_INITIAL_TREATMENT",
+    "DAYS_TO_INITIAL_PATHOLOGIC_DIAGNOSIS",
+    "DISEASE_CODE",
+    "HISTOLOGICAL_DIAGNOSIS",
+    "INFORMED_CONSENT_VERIFIED",
+    "GRADE",
+    "PROJECT_CODE",
+    "TUMOR_TISSUE_SITE_PATIENT",
+    "OS_STATUS",
+    "DFS_STATUS"
+)
+
+for (variable in factor_variables) {
+    sub_patient_data[[variable]] <- as.factor(sub_patient_data[[variable]])
+}
+
+sub_patient_data$AGE <- as.numeric(sub_patient_data$AGE)
+
+# Verificar se foram convertidas de forma correta
+str(sub_patient_data)
+```
+
+```{r}
+sub_sample_data$OCT_EMBEDDED = as.factor(sub_sample_data$OCT_EMBEDDED)
+sub_sample_data$VIAL_NUMBER = as.factor(sub_sample_data$VIAL_NUMBER)
+sub_sample_data$SAMPLE_TYPE = as.factor(sub_sample_data$SAMPLE_TYPE)
+sub_sample_data$SOMATIC_STATUS = as.factor(sub_sample_data$SOMATIC_STATUS)
+
+# Verificar se as variáveis foram convertidas corretamente
+str(sub_sample_data)
+
+```
+
+# **Sumarização dos dados**
+
+A partir da sumarização, é possível obter uma tabela com todas as variáveis separadas e numeradas, observando o formato (‘character’ ou ‘numeric’), os seus valores, as suas frequências e os NA presentes.\
+
+```{r}
+print(dfSummary(sub_patient_data, style = 'grid', graph.magnif = 1, valid.col = FALSE, max.distinct.values = 5, col.widths = c(100, 200, 200, 350, 500, 250), dfSummary.silent  = TRUE, headings = FALSE, justify = 'l'), method = 'render', max.tbl.height = 500)
+```
+
+## **Análise da frequência absoluta e relativa de algumas variáveis associadas ao cancro** 
+
+```{r}
+#Frequência relativa:
+prop.table(table(sub_patient_data$SEX))
+prop.table(table(sub_patient_data$AGE))
+prop.table(table(sub_patient_data$HISTORY_OTHER_MALIGNANCY))
+prop.table(table(sub_patient_data$TUMOR_STATUS))
+prop.table(table(sub_mutations_data$Chromosome))
+```
+```{r}
+#frequência absoluta
+table((sub_patient_data$SEX))
+table((sub_patient_data$AGE))
+table((sub_patient_data$HISTORY_OTHER_MALIGNANCY))
+table((sub_patient_data$TUMOR_STATUS))
+table((sub_mutations_data$Variant_Type))
+table((sub_mutations_data$Chromosome))
+```
+
+Após a análise das frequências relativas e absolutas de alguns parâmetros, concluímos que: \
+- A incidência de cancro de bexiga é significativamente maior em homens (74.46%) em comparação com as mulheres (25.54%).\
+- A distribuição da incidência de cancro de bexiga por idade varia, mas não há uma tendência clara com base nos valores percentuais fornecidos.\
+- A maioria dos pacientes (72.55%) não possui histórico de outros tumores malignos, enquanto 27.45% dos pacientes possuem esse histórico, o que sugere que o histórico de outros tumores malignos pode estar associado a um aumento do risco de câncer de bexiga.\
+- A maioria dos pacientes (63.59%) possui um tumor, enquanto o restante (36.41%) está livre de tumor, o que pode indicar que a maioria dos pacientes foi diagnosticada com cancro de bexiga num estado em que o tumor já estava presente.\
+- A incidência de cancro de bexiga parece variar entre os diferentes cromossomas, mas não há uma tendência clara com base nos valores percentuais fornecidos. \
+
+Conclusão Geral: \
+Com base na análise desses parâmetros, podemos concluir que o sexo masculino e a presença de outros tumores malignos  estão associados a um risco aumentado de cancro de bexiga. No entanto, a associação com a idade e os cromossomas não é tão clara. Deste modo, procedemos a uma visualização gráfica desta análise.\
+
+
+## **Visualização gráfica**
+
+### **Dados relativos a mutações**
+
+```{r}
+valores_cromossomas <- table(sub_mutations_data$Chromosome)
+total_cromossomas <- sum(valores_cromossomas)
+percentagens_cromossomas <- round(100 * valores_cromossomas / total_cromossomas, 1)
+
+ggplot(data = as.data.frame(valores_cromossomas), aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "chocolate2", width = 0.5) +
+  labs(title = "Incidência de mutações por cromossoma", x = "Cromossomas", y = "Percentagem de Mutações") +
+  scale_x_discrete(labels = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22")) + theme_minimal() + theme(plot.title = element_text(hjust = 0.5))
+```
+
+O gráfico de barras mostra a distribuição das mutações em diferentes cromossomas. A partir do gráfico, é possível identificar que o cromossoma 1 apresenta uma frequência mais elevada de mutações, o que pode indicar a presença de anomalias cromossomicas ou regiões do genoma mais instáveis. É possível que esses cromossomas contenham genes que são mais críticos para o desenvolvimento do cancro em análise.
+
+
+```{r graph_sum, class.output="scroll", fig.align='center'}
+# Pie Chart Variant Type
+w = table(sub_mutations_data$Variant_Type)
+t <- as.data.frame(w)
+
+percentages <- round(100 * w / sum(w))
+lbls <- paste(names(w), percentages, "%", sep = ": ")
+
+# Create a pie chart
+pie(w, labels = lbls, col = c("darkslategray1", "coral", "darkolivegreen1", "navajowhite"),
+    main = "Variant Type")
+
+```
+
+O gráfico apresentado mostra a distribuição de mutações por tipo nos dados de cancro da bexiga. A partir da análise do gráfico, podemos observar que existe predominÂncia de 100% de SNPs (Single Nucleotide Polymorphisms) o que significa que todas as mutações observadas envolvem a mudança de um único nucleotídeo. A alta frequência de SNPs pode ser específica do cancro da bexiga, ou do tipo de cancro da bexiga em questão.
+
+
+```{r}
+excluded_entries <- c("3UTR\tSNP\tG\tG\tA\t\t\tTCGA-2F-A9KO-01\tBLCA-TCGA-2F-A9KO-Normal-SM-5WKX7\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tSomatic\tPhase_I\tWXS\tnone\tNaN\tNaN\tIllumina GAIIx\t51\t30\t\t\tENST00000265382.3:c.*3G>A\t\t*1*\tENST00000265382\tNM_003558.3\t\t\t0\t88.73267\t\tNaN\tENST00000541509.1\t\t1697\t\t\t\t\t\t\t\t\tNaN\tPI51B_HUMAN\t\t7\tc.1508G>A\tPIP5K1B_ENST00000265382.3_3UTR",
+                      "5UTR\tSNP\tG\tG\tA\t\t\tTCGA-2F-A9KR-01\tBLCA-TCGA-2F-A9KR-Normal-SM-5WKWJ\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tNaN\tSomatic\tPhase_I\tWXS\tnone\tNaN\tNaN\tIllumina GAIIx\t8\t7\t\t\tENST00000451102.2:c.-62C>T\t\t*21*\tENST00000451102\t\t\t\t0\t20.022765\t9\tNaN\tENST00000299697.7\t3.213317\t289\t\t\t0.491\t.\t\t\t\t.\tNaN\tKITM_HUMAN\t\t0\tc.65C>T\tTK2_ENST00000544898.1_5UTR|TK2_ENST00000417693.3_5UTR|TK2_ENST00000451102.2_5UTR|TK2_ENST00000527284.1_Intron|Y_RNA_ENST00000563151.1_lincRNA")
+
+# Calculando a contagem das classificações de variantes, excluindo as entradas específicas
+classification <- table(sub_mutations_data$Variant_Classification[!sub_mutations_data$Variant_Classification %in% excluded_entries])
+
+# Calculando as percentagens
+percentagens <- round(100 * classification / sum(classification))
+
+# Criando os rótulos com as percentagens
+valores_classificacao <- paste(names(classification), percentagens, "%", sep = ": ")
+
+# Criando o gráfico de pizza
+pie(classification, labels = valores_classificacao, cex=0.7, col = c("darkslategray1", "coral", "darkolivegreen1", "navajowhite"),
+    main = "Classificação de Variantes")
+
+# Adicionando uma legenda separada
+legend("topright", legend = valores_classificacao, fill = c("darkslategray1", "coral", "darkolivegreen1", "navajowhite"),
+    title = "Classificação", cex = 0.6, inset = c(0, 0), xpd = TRUE)
+```
+O gráfico fornece um ponto de partida para entender os tipos de classificações de variantes presentes nos dados de pesquisa de cancro da bexiga. \
+A maior parte do gráfico é rotulada como "Mutação Missense: 64%." Isso sugere que as mutações missense são o tipo mais frequente de classificação de variante. Mutações missense são SNPs (polimorfismos de nucleotídeo único) que resultam numa mudança na sequência de aminoácidos de uma proteína, mas não alteram o comprimento da proteína.\
+Silenciosa: A segunda maior parte é rotulada como "Silenciosa: 24%." Mutações silenciosas são outro tipo de SNP que não alteram a sequência de aminoácidos da proteína e podem não ter um impacto significativo na função da proteína.\
+Outras classificações: As classificações restantes, incluindo "Nonsense_Mutation", "Splice_Site", "Splice_Region" e "Intron", parecem ser menos frequentes com base nas fatias menores que ocupam no gráfico.\
+A alta prevalência de mutações missense pode justificar uma investigação mais aprofundada para avaliar o seu potencial impacto funcional na função da proteína e no desenvolvimento da doença.\
+A presença de mutações silenciosas pode ser informativa sobre a taxa de mutação ou a história evolutiva dos genes. No entanto, como elas provavelmente não afetam a função da proteína, podem não ser o foco principal para estudos funcionais.\
+Mutações menos frequentes: As classificações de variantes menos frequentes podem ser interessantes, dependendo da sua pergunta de pesquisa específica. Se essas mutações são conhecidas por serem patogénicas noutros contextos, podem valer a pena investigar mais a fundo.
+
+
+
+### **Dados dos pacientes**
+
+```{r}
+#Criar um gráfico de barras que mostra a distribuição do cancro por sexo
+ggplot(sub_patient_data, aes(x = SEX)) +
+  geom_bar(fill = "lightsteelblue",width = 0.5) +
+  labs(title = "Distribuição do cancro por sexo", x="Sexo", y="Número de pacientes") + 
+  scale_x_discrete(labels = c("Feminino", "Masculino")) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+O gráfico mostra a distribuição do cancro por sexo. Este indica que existe uma maior prevalência de cancro na bexiga em pacientes do Sexo masculino. A maior prevalência de cancro da bexiga em homens é um facto que tem vindo a ser comprovado. Esta incidencia está normalmente também associada a fatores como: Tabagismo (principal fator de risco)
+exposição ocupacional a certos produtos químicos, histórico familiar da doença, sendo assim mais análises poderão ser feitas no futuro.
+
+```{r}
+fatores_relevantes = c("AGE", "TUMOR_STATUS")
+
+patient_relevante <- sub_patient_data[,fatores_relevantes]
+
+boxplot(AGE ~ TUMOR_STATUS, data = patient_relevante, main = "Idade vs Tumor Status", xlab = "Status", ylab = "Idade (anos)", col = c("slateblue2", "thistle3", "mistyrose2"), names = c("With tumor", "Tumor free", "Not avaiable"))
+
+```
+O gráfico corresponde à analise da relação entre a idade e o status do tumor em pacientes com cancro de bexiga. O gráfico sugere que não existe uma relação entre a idade e o atual estado do cancro. No entanto, seria mais interessante analisar a idade em que foi diagnosticado o cancro, contudo estes metadados não estão presentes nos nossos datasets.\
+
+
+
+
+```{r}
+valores_outcome <- table(sub_patient_data$TREATMENT_OUTCOME_FIRST_COURSE)
+total_obs_outcome <- sum(valores_outcome)
+percentagens_outcome <- round(100 * valores_outcome / total_obs_outcome, 1)
+
+ggplot(data = as.data.frame(valores_outcome), aes(x = Var1, y = Freq)) +
+  geom_bar(stat = "identity", fill = "darkseagreen", width = 0.5) +
+  labs(title = "Resultados do tratamento", x = "Tipo de resultado do tratamento", y = "Número de pacientes") +
+  scale_x_discrete(labels = c("Not Applicable", "Not Available", "Complete Remission/Response", "Partial Remission/Response", "Progressive Disease", "Stable Disease")) + theme_minimal() + theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+O gráfico ilustra a distribuição dos resultados do tratamento inicial (primeiro ciclo) para os pacientes. \
+Remissão Completa/Resposta: Representado pela maior barra é o resultado mais comum, a remissão completa ou resposta indica que o tratamento foi bem-sucedido em reduzir significativamente ou eliminar todos os sinais de cancro
+Doença Estável: Representada pela segunda maior barra, significa que o cancro não cresceu nem diminuiu significativamente após o tratamento.\
+Remissão Parcial/Resposta: Representada pela barra menor, indica que o tratamento reduziu o tamanho do tumor, mas não o eliminou completamente.\
+Doença Progressiva: Representada pela terceira maior barra, significa que o cancro cresceu após o tratamento.\
+Não Aplicável: Pode significar que o tratamento inicial não era apropriado para esses pacientes por algum motivo.\
+Não Disponível: Significa que a informação sobre o resultado do tratamento inicial não estava disponível no conjunto de dados.\
+Na generalidade parece haver remissão completa/resposta ao tratamento, sendo este um sinal positivo para a continuação da aplicação deste tratamento em doentes com cancro na bexiga.\
+
+```{r}
+# Calcular frequências combinadas
+combined_frequency <- table(c(sub_patient_data$HISTORY_OTHER_MALIGNANCY, sub_patient_data$NONINVASIVE_BLADDER_HISTORY))
+
+# Calcular as percentagens
+percentages <- prop.table(combined_frequency) * 100
+
+# Criar um gráfico de barras
+barplot(percentages, main = "", 
+        ylab = "Percentage of patients", col = "skyblue", border = "black",
+        ylim = c(0, max(percentages) * 1.2),  # Definir limite y para evitar que as barras sejam cortadas
+        names.arg = names(combined_frequency), las = 0) 
+
+# Adicionar o título
+mtext(text = "Combined Frequency of History of Other Malignancy\nand Non-invasive Bladder History", side = 3, line = 0.5, cex = 1.2)
+
+# Adicionar as porcentagens acima das barras
+text(x = barplot(percentages, plot = FALSE), y = percentages + 1, labels = paste0(round(percentages, 1), "%"), pos = 3)
+
+mtext("History of Other Malignancy", side = 1, line = 3, at = 1.4)
+mtext("Non-invasive Bladder History", side = 1, line = 3, at = 4.3)
+```
+
+O gráfico mostra a distribuição combinada do histórico de outros tumores e do histórico de cancro de bexiga não invasiva para os pacientes.\
+36,3% dos pacientes não possuem histórico de outros tumores.\
+29.2% dos pacientes não possuem hitórico de cancro da bexiga não invasiva.\
+13.7% dos pacientes possuem histórico de outros tumores.\
+8.2% dos pacientes possuem histórico de cancro da bexiga não invasiva.\
+
+Isto indica que na generalidade quase metade dos pacientes não possuem histórico de cancro da bexiga não invasiva e não possuem histórico de outros tumores.
+
+# **Análise estatística univariada**
+
+```{r}
+# Teste à variância
+variancia <- tapply(sub_patient_data$AGE, sub_patient_data$SEX, var, na.rm = TRUE)
+variancia
+
+# Teste à normalidade
+norm_masc <- shapiro.test(sub_patient_data$AGE[sub_patient_data$SEX == "Male"])
+print(norm_masc)
+norm_fem <- shapiro.test(sub_patient_data$AGE[sub_patient_data$SEX == "Female"])
+print(norm_fem)
+```
+
+- As variâncias das idades para homens e mulheres são bastante próximas, sugerindo que a dispersão das idades é semelhante entre os sexos. No entanto, a distribuição de idade para homens não seguem uma distribuição normal de acordo com o teste de Shapiro-Wilk, enquanto que para as mulheres parecem se aproximar de uma distribuição normal.Deste modo, realizámos um qqplot para permitir a visualização gráfica.
+
+```{r}
+library(car)
+qqPlot(sub_patient_data$AGE[sub_patient_data$SEX == "Male"], main = "Masculino")
+qqPlot(sub_patient_data$AGE[sub_patient_data$SEX == "Female"], main = "Feminino")
+```
+- De acordo com o qqPlot, a distribuição de idade, tanto nos Homens como nas Mulheres, segue uma distribuição normal.
+- Uma vez que temos um tamanho elevado das amostras, vamos fazer um t-test para poder analisar relação entre sexo e idade.
+
+```{r}
+t.test(sub_patient_data$AGE ~ sub_patient_data$SEX, na.rm = TRUE)
+```
+A análise do t-test mostrou que não existem diferenças significativas entre os grupos da variável ‘sex’ para os valores de ‘age’.
+Para comprovar este resultado, foi feito um boxplot que relaciona a idade e o género das diferentes linhas celulares.\
+
+```{r}
+#Gráfico relação idade vs género
+
+
+boxplot(AGE ~ SEX, data = sub_patient_data, 
+        main = "Idade Vs Género", 
+        xlab = "Género", 
+        ylab = "Idade", 
+        col = c("lightpink", "lightblue2"))
+
+```
+```{r}
+# Criar um gráfico de densidade 
+ggplot(data = sub_patient_data, aes(x = AGE)) +
+  geom_density() +
+  labs(
+    main = "Gráfico de densidade para a idade dos pacientes",
+    xlab = "Idade dos pacientes"
+  )
+```
+
+Através do gráfico de densidades é possível compreender as distribuições das idades dos pacientes. 
+- Ambas as distribuições de idade para homens e mulheres parecem ser unimodais, ou seja, têm um único pico.
+- A distribuição de idade para mulheres parece estar ligeiramente enviesada para a direita, indicando uma concentração ligeiramente maior de idades mais altas.Por outro lado, a distribuição de idade para homens parece mais simétrica e ligeiramente mais dispersa em comparação com as mulheres.\
+
+#Análise de variáveis no dataset mRNA_seq
+
+```{r}
+#Teste normalidade do dataset mRNA_seq em função dos metadados 'HISTOLOGICAL_SUBTYPE'
+
+# Inicialização dos vetores
+normal <- c()
+n_normal <- c()
+normal2 <- c()
+n_normal2 <- c()
+normal3 <- c()
+n_normal3 <- c()
+N <- 1
+NN <- 1
+
+# Defina o número de linhas desejado
+num_linhas <- 5000
+
+# Selecione as primeiras num_linhas linhas do dataframe sub_patient_data
+sub_patient_data <- sub_patient_data[1:num_linhas, ]
+# Selecione as primeiras num_linhas linhas do dataframe mRNA_seq
+mRNA_seq <- mRNA_seq[1:num_linhas, ]
+
+# Loop através das colunas do dataframe
+for (i in 1:ncol(mRNA_seq)) {
+  # Verificar se os dados são numéricos e se a amostra tem pelo menos 3 observações
+  if (is.numeric(mRNA_seq[[i]]) && sum(!is.na(mRNA_seq[[i]])) >= 3) {
+    # Teste de Shapiro-Wilk
+    if (length(mRNA_seq[[i]]) >= 3 && length(mRNA_seq[[i]]) <= 5000) {
+      s <- shapiro.test(mRNA_seq[[i]])
+      
+      # Verificação do p-valor
+      if (s$p.value > 0.05) {
+        normal[N] <- i
+        # ANOVA
+        anova1 <- aov(mRNA_seq[[i]] ~ sub_patient_data$HISTOLOGICAL_SUBTYPE, data = mRNA_seq)
+        anova2 <- aov(mRNA_seq[[i]] ~ sub_patient_data$HISTOLOGICAL_SUBTYPE, data = mRNA_seq)
+        normal2[N] <- na.exclude(summary(anova1)[[1]][["Pr(>F)"]])
+        normal3[N] <- na.exclude(summary(anova2)[[1]][["Pr(>F)"]])
+        N <- N + 1
+      } else {
+        n_normal[NN] <- i
+        # Kruskal-Wallis
+        krustal1 <- kruskal.test(mRNA_seq[[i]] ~ sub_patient_data$HISTOLOGICAL_SUBTYPE, data = mRNA_seq)
+        krustal2 <- kruskal.test(mRNA_seq[[i]] ~ sub_patient_data$HISTOLOGICAL_SUBTYPE, data = mRNA_seq)
+        n_normal2[NN] <- krustal1$p.value
+        n_normal3[NN] <- krustal2$p.value
+        NN <- NN + 1
+      }
+    } else {
+      # Exibir uma mensagem de aviso se a amostra estiver fora do intervalo aceitável
+      print(paste("Sample size for column", i, "is not within the acceptable range (3-5000)"))
+    }
+  }
+}
+```
+
+```{r}
+length(normal)
+
+length(n_normal) 
+
+colnames(mRNA_seq[, normal])
+
+length(which(n_normal2 < 0.05)) 
+
+colnames(mRNA_seq[, which(n_normal2 < 0.05)])
+
+length(which(n_normal3 < 0.05))
+
+colnames(mRNA_seq[, which(n_normal3 < 0.05)])
+
+```
+Concluímos que 408 variáveis não passaram no teste de normalidade e foram submetidas a testes não paramétricos (teste de Kruskal-Wallis) para verificar se há diferenças significativas entre os grupos de acordo com os subtipos histológicos. Parece que não foram encontradas variáveis que seguissem uma distribuição normal ou que apresentassem diferenças significativas entre os grupos de subtipos histológicos dentro do conjunto de dados mRNA_seq, o que pode significar que a expressão génica não é influenciada pelos subtipos histológicos ou que as amostras são muito variáveis e não se encaixam em nenhum padrão claro.
+
+# **Análise de expressão diferencial e de enriquecimento**
+
+
+Tivemos alguns problemas com os packages necessários para fazer a análise de expressão diferencial e por isso estamos a tentar resolver de forma a podermos prosseguir com as análises necessárias para a entrega da segunda fase do trabalho. Agradecemos a sua compreensão. 
+
+
+
+
+
+
+
+
+
+
